@@ -1,0 +1,1517 @@
+<html lang="ms">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Projek ASK - Hub Pengurusan & Analisis Pelajar</title>
+
+    <!-- PWA Manifest Link & App Theme Color -->
+    <link rel="manifest" href="./manifest.json">
+    <meta name="theme-color" content="#0284c7">
+
+    <!-- Mobile & iOS Settings -->
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="StudyHub">
+    <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/2921/2921222.png">
+
+    <!-- Chart.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <!-- Service Worker Registration -->
+    <script>
+        if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./sw.js')
+                    .then(reg => console.log('Service Worker Registered!', reg.scope))
+                    .catch(err => console.error('Service Worker Failed!', err));
+            });
+        }
+    </script>
+
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        :root {
+            --bg-color: #f0f9ff;
+            --container-bg: #ffffff;
+            --text-color: #1e293b;
+            --heading-color: #0369a1;
+            --card-bg: #f8fafc;
+            --border-color: #e2e8f0;
+            --sidebar-bg: #0f172a;
+        }
+
+        body.dark-mode {
+            --bg-color: #0f172a;
+            --container-bg: #1e293b;
+            --text-color: #f1f5f9;
+            --heading-color: #38bdf8;
+            --card-bg: #334155;
+            --border-color: #475569;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            display: flex;
+            transition: background-color 0.3s, color 0.3s;
+        }
+
+        #offline-banner {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            background-color: #ef4444;
+            color: white;
+            text-align: center;
+            padding: 8px;
+            font-size: 13px;
+            font-weight: bold;
+            z-index: 2000;
+        }
+
+        .sidebar {
+            height: 100vh;
+            width: 250px;
+            position: fixed;
+            top: 0;
+            left: 0;
+            background-color: var(--sidebar-bg);
+            color: #ffffff;
+            transition: all 0.3s ease;
+            overflow-y: auto;
+            z-index: 1000;
+            box-shadow: 2px 0 10px rgba(0,0,0,0.15);
+        }
+
+        .sidebar.closed {
+            width: 0;
+        }
+
+        .sidebar-header {
+            padding: 20px;
+            font-size: 16px;
+            font-weight: bold;
+            color: #38bdf8;
+            border-bottom: 1px solid #1e293b;
+            text-align: center;
+            white-space: nowrap;
+        }
+
+        .sidebar-menu {
+            list-style: none;
+            padding: 0;
+            margin: 15px 0;
+        }
+
+        .sidebar-menu li a {
+            display: block;
+            padding: 12px 20px;
+            color: #94a3b8;
+            text-decoration: none;
+            font-size: 14px;
+            white-space: nowrap;
+            transition: 0.2s;
+        }
+
+        .sidebar-menu li a:hover,
+        .sidebar-menu li a.active {
+            background-color: #1e293b;
+            color: #ffffff;
+            border-left: 4px solid #38bdf8;
+        }
+
+        .main-content {
+            margin-left: 250px;
+            padding: 25px;
+            width: 100%;
+            transition: all 0.3s ease;
+            display: flex;
+            justify-content: center;
+        }
+
+        .main-content.expanded {
+            margin-left: 0;
+        }
+
+        .container {
+            background-color: var(--container-bg);
+            width: 100%;
+            max-width: 680px;
+            padding: 25px;
+            border-radius: 12px;
+            box-shadow: 0 6px 18px rgba(0, 0, 0, 0.08);
+            border-top: 6px solid #0284c7;
+        }
+
+        .header-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .toggle-btn, .dark-btn {
+            font-size: 14px;
+            background-color: #0f172a;
+            color: white;
+            border: none;
+            padding: 8px 14px;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+
+        .dark-btn { background-color: #0284c7; }
+
+        h2 {
+            color: var(--heading-color);
+            margin-top: 0;
+            text-align: center;
+            border-bottom: 2px solid #bae6fd;
+            padding-bottom: 10px;
+        }
+
+        .profile-card {
+            background-color: var(--card-bg);
+            border: 1px solid var(--border-color);
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+
+        .profile-display {
+            font-size: 15px;
+            font-weight: bold;
+            color: #0284c7;
+            text-align: center;
+            margin-bottom: 10px;
+        }
+
+        .section-title {
+            font-weight: bold;
+            color: var(--heading-color);
+            margin-top: 25px;
+            margin-bottom: 10px;
+            font-size: 15px;
+            border-left: 4px solid #0284c7;
+            padding-left: 8px;
+        }
+
+        .hero-card {
+            padding: 20px;
+            border-radius: 12px;
+            text-align: center;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+            transition: all 0.3s ease;
+        }
+
+        .hero-countdown-normal {
+            background: linear-gradient(135deg, #e0f2fe 0%, #bae6fd 100%);
+            border: 2px solid #0284c7;
+        }
+
+        .hero-countdown-warning {
+            background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+            border: 2px solid #f59e0b;
+        }
+
+        .hero-countdown-danger {
+            background: linear-gradient(135deg, #fee2e2 0%, #fca5a5 100%);
+            border: 2px solid #ef4444;
+        }
+
+        .hero-goals {
+            background: linear-gradient(135deg, #e0f2fe 0%, #bae6fd 100%);
+            border: 2px solid #0284c7;
+        }
+
+        .hero-gamify {
+            background: linear-gradient(135deg, #f3e8ff 0%, #d8b4fe 100%);
+            border: 2px solid #9333ea;
+        }
+
+        .hero-card .hero-title {
+            font-size: 13px;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: #1e293b;
+        }
+
+        .hero-card .hero-subtitle {
+            font-size: 20px;
+            font-weight: 800;
+            margin: 4px 0 8px 0;
+            color: #0f172a;
+        }
+
+        .hero-card .hero-display {
+            font-size: 42px;
+            font-weight: 900;
+            line-height: 1;
+            margin: 10px 0;
+            color: #0f172a;
+        }
+
+        .motivation-text {
+            font-size: 13px;
+            font-style: italic;
+            font-weight: 600;
+            margin-top: 10px;
+            padding: 8px 12px;
+            border-radius: 6px;
+            display: inline-block;
+            background-color: rgba(255, 255, 255, 0.7);
+            color: #0f172a;
+        }
+
+        .form-group { margin-bottom: 10px; }
+
+        label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 4px;
+            font-size: 13px;
+        }
+
+        input[type="text"],
+        input[type="number"],
+        input[type="date"],
+        input[type="time"],
+        select {
+            width: 100%;
+            padding: 8px 10px;
+            border: 1px solid var(--border-color);
+            background-color: var(--card-bg);
+            color: var(--text-color);
+            border-radius: 6px;
+            font-size: 13px;
+        }
+
+        button.action-btn {
+            width: 100%;
+            background-color: #0284c7;
+            color: white;
+            border: none;
+            padding: 10px;
+            font-size: 14px;
+            font-weight: bold;
+            border-radius: 6px;
+            cursor: pointer;
+            margin-top: 6px;
+        }
+
+        button.action-btn:hover { background-color: #0369a1; }
+
+        ul.task-ul {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        ul.task-ul li {
+            background-color: var(--card-bg);
+            border: 1px solid var(--border-color);
+            padding: 10px 12px;
+            border-radius: 6px;
+            margin-bottom: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-size: 13px;
+        }
+
+        ul.task-ul li.completed span.task-title {
+            text-decoration: line-through;
+            opacity: 0.6;
+        }
+
+        .badge-priority {
+            font-size: 10px;
+            padding: 2px 6px;
+            border-radius: 4px;
+            color: white;
+            font-weight: bold;
+            margin-left: 6px;
+        }
+
+        .badge-high { background-color: #ef4444; }
+        .badge-normal { background-color: #0284c7; }
+
+        .timer-box {
+            background-color: var(--card-bg);
+            border: 1px solid var(--border-color);
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        .timer-display {
+            font-size: 32px;
+            font-weight: bold;
+            color: #0369a1;
+            margin: 6px 0;
+        }
+
+        .btn-group { display: flex; gap: 8px; }
+        .btn-group button {
+            flex: 1;
+            padding: 8px;
+            border: none;
+            border-radius: 6px;
+            color: white;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        .flashcard-card {
+            background-color: var(--card-bg);
+            border: 2px solid #0284c7;
+            padding: 30px 15px;
+            border-radius: 10px;
+            text-align: center;
+            min-height: 120px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            margin-bottom: 10px;
+            user-select: none;
+        }
+
+        .chart-container {
+            position: relative;
+            margin-top: 10px;
+            height: 240px;
+        }
+
+        .predictor-box {
+            background-color: var(--card-bg);
+            border: 1px dashed #0284c7;
+            padding: 12px;
+            border-radius: 8px;
+            text-align: center;
+            font-weight: bold;
+            margin-top: 10px;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="offline-banner">⚠️ Mod Luar Talian Active — Data disimpan secara tempatan</div>
+
+    <div id="mySidebar" class="sidebar">
+        <div class="sidebar-header">STUDY HUB MENU</div>
+        <ul class="sidebar-menu">
+            <li><a href="#sec-profile" class="active">Profil Pelajar</a></li>
+            <li><a href="#sec-current-pointer">📊 STATUS POINTER</a></li>
+            <li><a href="#sec-gamify">⭐STREAK & ACHIVEMENT</a></li>
+            <li><a href="#sec-timetable">🗓️Jadual Waktu Belajar</a></li>
+            <li><a href="#sec-goals">🎯GOALS</a></li>
+            <li><a href="#sec-countdown">⌛EXAM COUNTDOWN</a></li>
+            <li><a href="#sec-checklist">📋TASK & REMINDER</a></li>
+            <li><a href="#sec-pomodoro">⏱️Pomodoro & Focus Audio</a></li>
+            <li><a href="#sec-flashcard">🧠Flashcards</a></li>
+            <li><a href="#sec-gpa">🧮Kalkulator GPA</a></li>
+            <li><a href="#sec-predictor">📊Pengira Sasaran Gred</a></li>
+            <li><a href="#sec-chart">📈Analisis Graf</a></li>
+        </ul>
+    </div>
+
+    <div id="mainContent" class="main-content">
+        <div class="container">
+            <div class="header-bar">
+                <button class="toggle-btn" onclick="toggleSidebar()">☰ Menu</button>
+                <button class="dark-btn" onclick="toggleDarkMode()">🌙 Mod Gelap</button>
+            </div>
+
+            <h2>Hub Pembelajaran Pelajar</h2>
+
+            <!-- PROFIL -->
+            <div id="sec-profile" class="profile-card">
+                <div id="displayStudentInfo" class="profile-display">👤 Nama: Belum Ditetapkan | Kelas: -</div>
+                <div style="display:flex; gap:8px;">
+                    <input type="text" id="studentName" placeholder="Nama Pelajar">
+                    <input type="text" id="studentClass" placeholder="Kelas (Contoh: 3 Amanah)" style="width: 160px;">
+                </div>
+                <button type="button" onclick="simpanProfil()" class="action-btn" style="margin-top:8px;">Simpan Profil</button>
+            </div>
+
+            <!-- STATUS POINTER SEKARANG & TARGET -->
+            <div id="sec-current-pointer" class="section-title">STATUS ACADEMIC</div>
+            <div class="hero-card" style="background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%); color: white; border: 2px solid #38bdf8;">
+                <div class="hero-title" style="color: #e0f2fe;">Pointer / Purata Gred Semasa</div>
+                <div id="outCurrentPointer" class="hero-display" style="color: #ffffff; font-size: 52px; text-shadow: 0 2px 4px rgba(0,0,0,0.2);">
+                    0.00
+                </div>
+                
+                <!-- PAPARAN TARGET POINTER -->
+                <div style="font-size: 14px; background: rgba(255,255,255,0.15); padding: 6px 12px; border-radius: 20px; display: inline-block; margin-bottom: 8px;">
+                    🎯 Target Pointer Anda: <strong id="outTargetPointer">Belum Set</strong>
+                </div>
+
+                <div id="pointerStatusBadge" class="motivation-text" style="background: rgba(255,255,255,0.2); color: white; display: block; margin-top: 5px;">
+                    Sila set target & kira GPA anda di Kalkulator GPA!
+                </div>
+
+                <!-- RUANG SET TARGET POINTER -->
+                <div style="margin-top: 15px; border-top: 1px dashed rgba(255,255,255,0.3); padding-top: 12px; display: flex; gap: 8px; justify-content: center; align-items: center;">
+                    <input type="number" id="targetPointerInput" step="0.01" min="0" max="9" placeholder="Set Target (Cth: 1.50 / 3.50)" style="width: 220px; padding: 6px; border-radius: 6px; border: none; font-size: 13px; text-align: center;">
+                    <button type="button" onclick="simpanTargetPointer()" style="background: #38bdf8; color: #0f172a; border: none; padding: 6px 12px; border-radius: 6px; font-weight: bold; cursor: pointer; font-size: 13px;">Simpan Target</button>
+                </div>
+            </div>
+
+            <!-- GAMIFIKASI -->
+            <div id="sec-gamify" class="section-title">STREAKS</div>
+            <div class="hero-card hero-gamify">
+                <div class="hero-title">Status Momentum Pembelajaran</div>
+                <div id="outLevelBadge" class="hero-subtitle">Tahap 1: Novice Scholar</div>
+                <div id="outStreak" class="hero-display">🔥 0 Streak Day </div>
+                <div id="outXP" style="font-weight: bold; color: #6b21a8;">0 XP</div>
+                <div id="gamifyMotivation" class="motivation-text">"No cap , CONSISTENCY IS THE KEY TO SUCCESS!"</div>
+            </div>
+
+            <!-- JADUAL WAKTU -->
+            <div id="sec-timetable" class="section-title">Jadual Waktu Belajar Harian</div>
+            <div class="form-group" style="display:flex; gap:8px;">
+                <input type="time" id="timeInput" style="width: 120px;">
+                <input type="text" id="subjectInput" placeholder="Subjek / Aktiviti (Contoh: Ulangkaji Math)">
+                <button type="button" onclick="tambahJadualBaru()" class="action-btn" style="width: 90px; margin-top:0;">Tambah</button>
+            </div>
+            <ul id="timetableList" class="task-ul"></ul>
+
+            <!-- GOALS -->
+            <div id="sec-goals" class="section-title">GOALS</div>
+            <div class="hero-card hero-goals">
+                <div class="hero-title">WHAT'S YOUR GOALS!</div>
+                <div class="hero-subtitle"></div>
+                <div id="outGoalCounter" class="hero-display">0 / 0 Accomplish</div>
+                <div id="goalMotivation" class="motivation-text">"Study LOCK IN! , the payoff is gonna leave no crumbs"</div>
+            </div>
+
+            <div class="form-group" style="display:flex; gap:8px;">
+                <input type="text" id="goalInput" placeholder="Tambah sasaran baru (Contoh: Dapat A Math)">
+                <button type="button" onclick="tambahGoalBaru()" class="action-btn" style="width: 90px; margin-top:0;">Tambah</button>
+            </div>
+            <ul id="goalList" class="task-ul"></ul>
+
+            <!-- COUNTDOWN -->
+            <div id="sec-countdown" class="section-title">EXAM COUNTDOWN!</div>
+            <div id="examCard" class="hero-card hero-countdown-normal">
+                <div class="hero-title">Status Peperiksaan</div>
+                <div id="outExamName" class="hero-subtitle">Ujian Akhir Sesi Akademik (UASA)</div>
+                <div id="outDays" class="hero-display"> -- More Days</div>
+                <div id="examMotivation" class="motivation-text">"Time waits for no one. LET'S COOK before the exams eat us up"</div>
+            </div>
+
+            <div class="form-group">
+                <label for="examName">Tukar Nama Ujian / Peperiksaan:</label>
+                <input type="text" id="examName" placeholder="Contoh: SPM / UAB">
+            </div>
+            <div class="form-group">
+                <label for="examDate">Tarikh Ujian:</label>
+                <input type="date" id="examDate">
+            </div>
+            <button type="button" onclick="kiraDanSimpanCountdown()" class="action-btn">Kemas Kini Countdown</button>
+
+            <!-- CHECKLIST -->
+            <div id="sec-checklist" class="section-title">Checklist & Notification</div>
+            <button type="button" onclick="mintaIzinNotifikasi()" style="background-color:#16a34a; margin-bottom:12px;" class="action-btn">
+                🔔 Activated Notification Reminder (Setiap 2 Jam)
+            </button>
+
+            <div class="form-group" style="display:flex; gap:8px;">
+                <input type="text" id="taskInput" placeholder="Tambah Kerja Rumah...">
+                <select id="taskPriority" style="width: 110px;">
+                    <option value="Biasa">Biasa</option>
+                    <option value="Tinggi">Tinggi</option>
+                </select>
+                <button type="button" onclick="tambahTugasanBaru()" class="action-btn" style="width: 90px; margin-top:0;">Tambah</button>
+            </div>
+            <ul id="taskList" class="task-ul"></ul>
+
+            <!-- POMODORO -->
+            <div id="sec-pomodoro" class="section-title">Pomodoro Technique & Focus Audio</div>
+            <div class="timer-box">
+                <div id="timer" class="timer-display">25:00</div>
+                
+                <div class="btn-group" style="margin-bottom: 12px;">
+                    <button type="button" onclick="pilihModPomodoro('fokus')" style="background-color:#0284c7;">Fokus (25m)</button>
+                    <button type="button" onclick="pilihModPomodoro('rehat_pendek')" style="background-color:#16a34a;">Rehat 5m</button>
+                    <button type="button" onclick="pilihModPomodoro('rehat_panjang')" style="background-color:#d97706;">Rehat 15m</button>
+                </div>
+
+                <div class="btn-group" style="margin-bottom: 12px;">
+                    <button type="button" onclick="mulaMasa()" style="background-color:#059669;">▶ Mula</button>
+                    <button type="button" onclick="hentikanMasa()" style="background-color:#ef4444;">⏹ Reset</button>
+                </div>
+                
+                <div class="form-group" style="margin-top: 10px;">
+                    <label for="ambientSelect">🎧 Bunyi Latar Fokus (Ambient Sound):</label>
+                    <select id="ambientSelect" onchange="tukarAudioLatar()">
+                        <option value="off">Tutup Audio</option>
+                        <option value="rain">🌧️ Bunyi Hujan (Rain)</option>
+                        <option value="white">⚪ White Noise (Fokus High)</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- FLASHCARDS -->
+            <div id="sec-flashcard" class="section-title">Flashcard</div>
+            <div class="form-group" style="display:flex; gap:8px;">
+                <input type="text" id="fcQuestion" placeholder="Soalan / Kata Kunci">
+                <input type="text" id="fcAnswer" placeholder="Jawapan / Nota Short">
+                <button type="button" onclick="tambahFlashcard()" class="action-btn" style="width: 90px; margin-top:0;">Tambah</button>
+            </div>
+            
+            <div id="flashcardBox" class="flashcard-card" onclick="flipFlashcard()">
+                Klik "Tambah" untuk cipta Flashcard pertama anda!
+            </div>
+
+            <div style="display:flex; gap:10px; justify-content: space-between;">
+                <button type="button" onclick="prevFlashcard()" class="action-btn" style="background:#475569;">◀ Sebelum</button>
+                <button type="button" onclick="padamFlashcard()" class="action-btn" style="background:#ef4444; width: 120px;">🗑️ Padam</button>
+                <button type="button" onclick="nextFlashcard()" class="action-btn" style="background:#475569;">Seterusnya ▶</button>
+            </div>
+
+            <!-- KALKULATOR GPA -->
+            <div id="sec-gpa" class="section-title">🧮 Kalkulator GPA / PNGS Pelajar</div>
+            <div class="hero-card" style="background:#0f172a; border: 1px solid #334155; text-align: left;">
+                <div class="form-group">
+                    <label for="formLevel" style="color:#ffffff;">Pilih Tingkatan / Level:</label>
+                    <select id="formLevel" onchange="tukarLevelForm()">
+                        <option value="lower">Menengah Rendah (Form 1 - Form 3) [Gred A=1, F=6]</option>
+                        <option value="upper" selected>Menengah Atas (Form 4 - Form 5) [A+=0, G=9]</option>
+                    </select>
+                </div>
+
+                <div id="gpaInputs" style="display:flex; flex-direction:column; gap:8px;">
+                    <!-- Input subjek dimasukkan melalui JS -->
+                </div>
+
+                <div style="display:flex; gap:8px; margin-top:10px;">
+                    <button type="button" onclick="tambahInputSubjek()" class="action-btn" style="background:#0284c7; flex:1;">➕ Tambah Subjek</button>
+                    <button type="button" onclick="kiraGPA()" class="action-btn" style="background:#16a34a; flex:1;">Kira GPA 🎯</button>
+                </div>
+
+                <div id="gpaResult" class="predictor-box" style="margin-top:15px; text-align:center;">
+                    Pilih gred subjek korang & tekan **Kira GPA**! 🚀
+                </div>
+            </div>
+
+            <!-- GRADE PREDICTOR -->
+            <div id="sec-predictor" class="section-title">Pengira Sasaran Gred & Jurang Markah</div>
+            <div class="form-group">
+                <label for="currentMarkInput">Markah Terkini (%):</label>
+                <input type="number" id="currentMarkInput" placeholder="Contoh: 65">
+            </div>
+            <div class="form-group">
+                <label for="targetMarkInput">Sasaran Markah (%):</label>
+                <input type="number" id="targetMarkInput" placeholder="Contoh: 85">
+            </div>
+            <button type="button" onclick="kiraJurangMarkah()" class="action-btn" style="background-color:#059669;">Kira Keperluan Ujian Akhir</button>
+            <div id="predictorResult" class="predictor-box">Masukkan markah terkini dan sasaran untuk kira jurang!</div>
+
+            <!-- EXAM ANALYSIS CHART -->
+            <div id="sec-chart" class="section-title">Self-Analysis Test Result</div>
+            <div class="form-group">
+                <label for="formCategorySelect">Kategori Tingkatan:</label>
+                <select id="formCategorySelect" onchange="tukarKategoriTingkatan()">
+                    <option value="lower">Tingkatan Rendah (8 Subjek)</option>
+                    <option value="upper">Tingkatan Atas (9 Subjek)</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="subjectSelect">Pilih Subjek:</label>
+                <select id="subjectSelect"></select>
+            </div>
+            <div class="form-group">
+                <label for="markInput">Markah Terkini (%):</label>
+                <input type="number" id="markInput" min="0" max="100" placeholder="Contoh: 85">
+            </div>
+            <button type="button" onclick="kemaskiniGraf()" class="action-btn">Kemas Kini Graf</button>
+            <div id="gradeFeedback" class="predictor-box" style="margin-top:8px; display:none;"></div>
+
+            <div class="chart-container">
+                <canvas id="resultChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let tasks = [];
+        let goals = [];
+        let timetable = [];
+        let flashcards = [];
+        let currentFcIndex = 0;
+        let isFcFlipped = false;
+
+        let xp = 0;
+        let streak = 0;
+        let lastStudyDate = null;
+        let pomsSeconds = 25 * 60;
+        let subjectCount = 0;
+
+        const subjectConfig = {
+            lower: {
+                labels: ['BM', 'BI', 'Math', 'Sains', 'Sejarah', 'Geo', 'P.Islam/Moral', 'ASK/RBT'],
+                colors: ['#38bdf8', '#818cf8', '#34d399', '#facc15', '#f87171', '#a78bfa', '#fb923c', '#4ade80']
+            },
+            upper: {
+                labels: ['BM', 'BI', 'Matem Moden', 'Add Math', 'Bio/SK', 'P.Islam/Moral', 'Kimia', 'Fizik', 'Sejarah'],
+                colors: ['#38bdf8', '#818cf8', '#34d399', '#facc15', '#a78bfa', '#fb923c', '#f43f5e', '#06b6d4', '#eab308']
+            }
+        };
+
+        let currentCategory = "lower";
+        let marksDataLower = [75, 80, 65, 90, 70, 85, 88, 92];
+        let marksDataUpper = [70, 78, 62, 55, 68, 85, 60, 64, 75];
+
+        window.onload = function() {
+            muatTurunLocalStorage();
+            semakRangkaian();
+            tukarLevelForm();
+
+            window.addEventListener('online', semakRangkaian);
+            window.addEventListener('offline', semakRangkaian);
+
+            setInterval(semakDanHantarNotifikasi, 2 * 60 * 60 * 1000);
+        };
+
+        function semakRangkaian() {
+            const banner = document.getElementById("offline-banner");
+            banner.style.display = navigator.onLine ? "none" : "block";
+        }
+
+        function toggleDarkMode() {
+            document.body.classList.toggle("dark-mode");
+            localStorage.setItem("studyHub_darkMode", document.body.classList.contains("dark-mode"));
+        }
+
+        function simpanProfil() {
+            let name = document.getElementById("studentName").value.trim();
+            let cls = document.getElementById("studentClass").value.trim();
+
+            if (name === "" || cls === "") {
+                alert("Sila masukkan nama dan kelas anda!");
+                return;
+            }
+
+            localStorage.setItem("studyHub_studentName", name);
+            localStorage.setItem("studyHub_studentClass", cls);
+            paparProfil(name, cls);
+        }
+
+        function paparProfil(name, cls) {
+            document.getElementById("displayStudentInfo").innerText = `👤 Pelajar: ${name} | Kelas: ${cls}`;
+            document.getElementById("studentName").value = name;
+            document.getElementById("studentClass").value = cls;
+        }
+
+        function tambahXP(jumlah) {
+            xp += jumlah;
+            localStorage.setItem("studyHub_xp", xp);
+            kemaskiniStreak();
+            paparGamifikasi();
+        }
+
+        function kemaskiniStreak() {
+            let today = new Date().toISOString().split('T')[0];
+            if (lastStudyDate !== today) {
+                let yesterday = new Date();
+                yesterday.setDate(yesterday.getDate() - 1);
+                let yesterdayStr = yesterday.toISOString().split('T')[0];
+
+                if (lastStudyDate === yesterdayStr) {
+                    streak++;
+                } else if (lastStudyDate !== today) {
+                    streak = 1;
+                }
+                lastStudyDate = today;
+                localStorage.setItem("studyHub_streak", streak);
+                localStorage.setItem("studyHub_lastStudyDate", lastStudyDate);
+            }
+        }
+
+        function paparGamifikasi() {
+            document.getElementById("outXP").innerText = `${xp} XP`;
+            document.getElementById("outStreak").innerText = `🔥 ${streak} -Day Streak`;
+
+            let badge = "";
+            if (xp >= 300) {
+                badge = " Level 4: Literally HIM/HER 🏆";
+            } else if (xp >= 150) {
+                badge = "Level 3: Certified Chef 🌟";
+            } else if (xp >= 50) {
+                badge = " Level 2: Standing on business ⚡";
+            } else {
+                badge = " Level 1: Entering the Era 📑";
+            }
+
+            document.getElementById("outLevelBadge").innerText = badge;
+        }
+
+        // --- SIMPAN & BANDING TARGET POINTER ---
+        function simpanTargetPointer() {
+            let tVal = parseFloat(document.getElementById("targetPointerInput").value);
+            if (isNaN(tVal) || tVal < 0) {
+                alert("⚠️ Sila masukkan nilai target pointer yang sah!");
+                return;
+            }
+
+            let formattedTarget = tVal.toFixed(2);
+            localStorage.setItem("studyHub_targetPointer", formattedTarget);
+            
+            let curPointer = localStorage.getItem("studyHub_currentPointer") || "0.00";
+            let curLevel = document.getElementById("formLevel") ? document.getElementById("formLevel").value : "upper";
+            
+            paparPointerUtama(curPointer, curLevel);
+            alert("🎯 Target Pointer berjaya dikemaskini!");
+        }
+
+        function paparPointerUtama(pointerVal, level) {
+            let elem = document.getElementById("outCurrentPointer");
+            let targetElem = document.getElementById("outTargetPointer");
+            let badge = document.getElementById("pointerStatusBadge");
+
+            if (elem) elem.innerText = pointerVal;
+
+            let savedTarget = localStorage.getItem("studyHub_targetPointer");
+            if (targetElem) {
+                targetElem.innerText = savedTarget ? savedTarget : "Belum Set";
+            }
+
+            if (badge) {
+                if (!savedTarget) {
+                    badge.innerText = "Sila masukkan nilai Target Pointer anda di bawah!";
+                    return;
+                }
+
+                let cur = parseFloat(pointerVal);
+                let tgt = parseFloat(savedTarget);
+
+                // Perbandingan Logik
+                // Bagi sistem Gred Malaysia (1-6 / 0-9), lagi KECIL nilai purata, lagi CEMERLANG keputusan!
+                if (cur === 0) {
+                    badge.innerText = "Sila kira GPA anda di Kalkulator GPA untuk memulakan perbandingan!";
+                } else if (cur <= tgt) {
+                    badge.innerText = `🔥 EXCELLENT! Pointer anda (${cur.toFixed(2)}) MENCAPAI / MELEBIHI target (${tgt.toFixed(2)})! 🏆`;
+                } else {
+                    let diff = (cur - tgt).toFixed(2);
+                    badge.innerText = `🚨 PERLU PUSH! Pointer anda (${cur.toFixed(2)}) masih jarak ${diff} dari target (${tgt.toFixed(2)}). Lock in! 📈`;
+                }
+            }
+        }
+
+        function muatTurunLocalStorage() {
+            if (localStorage.getItem("studyHub_darkMode") === "true") {
+                document.body.classList.add("dark-mode");
+            }
+
+            const sName = localStorage.getItem("studyHub_studentName");
+            const sClass = localStorage.getItem("studyHub_studentClass");
+            if (sName && sClass) paparProfil(sName, sClass);
+
+            xp = parseInt(localStorage.getItem("studyHub_xp")) || 0;
+            streak = parseInt(localStorage.getItem("studyHub_streak")) || 0;
+            lastStudyDate = localStorage.getItem("studyHub_lastStudyDate") || null;
+            paparGamifikasi();
+
+            const savedTt = localStorage.getItem("studyHub_timetable");
+            timetable = savedTt ? JSON.parse(savedTt) : [
+                { time: "20:00", subject: "Ulangkaji Matematik" }
+            ];
+            paparJadual();
+
+            const savedGoals = localStorage.getItem("studyHub_goals");
+            goals = savedGoals ? JSON.parse(savedGoals) : [
+                { title: "Mencapai Sekurang-kurangnya 80% Matematik", completed: false }
+            ];
+            paparGoals();
+
+            const savedExamName = localStorage.getItem("studyHub_examName");
+            const savedExamDate = localStorage.getItem("studyHub_examDate");
+
+            if (savedExamDate) {
+                document.getElementById("examDate").value = savedExamDate;
+                document.getElementById("examName").value = savedExamName || "";
+                kiraCountdown(savedExamName, savedExamDate);
+            } else {
+                let defaultDate = new Date();
+                defaultDate.setDate(defaultDate.getDate() + 30);
+                let formattedDate = defaultDate.toISOString().split('T')[0];
+                document.getElementById("examDate").value = formattedDate;
+                kiraCountdown("Ujian Akhir Sesi Akademik (UASA)", formattedDate);
+            }
+
+            const savedTasks = localStorage.getItem("studyHub_tasks");
+            tasks = savedTasks ? JSON.parse(savedTasks) : [
+                { title: "Latihan Matematik M/S 45", priority: "Tinggi", completed: false }
+            ];
+            paparTugasan();
+
+            const savedFc = localStorage.getItem("studyHub_flashcards");
+            flashcards = savedFc ? JSON.parse(savedFc) : [
+                { q: "Apakah maksud Pembolehubah?", a: "Bekas dalam memori untuk menyimpan data." }
+            ];
+            paparFlashcard();
+
+            const savedCategory = localStorage.getItem("studyHub_formCategory");
+            if (savedCategory) currentCategory = savedCategory;
+            document.getElementById("formCategorySelect").value = currentCategory;
+
+            const savedLower = localStorage.getItem("studyHub_marksLower");
+            if (savedLower) marksDataLower = JSON.parse(savedLower);
+
+            const savedUpper = localStorage.getItem("studyHub_marksUpper");
+            if (savedUpper) marksDataUpper = JSON.parse(savedUpper);
+
+            const savedPointer = localStorage.getItem("studyHub_currentPointer") || "0.00";
+            const savedTarget = localStorage.getItem("studyHub_targetPointer");
+            if (savedTarget) {
+                document.getElementById("targetPointerInput").value = savedTarget;
+            }
+
+            const savedLevel = document.getElementById("formLevel") ? document.getElementById("formLevel").value : "upper";
+            paparPointerUtama(savedPointer, savedLevel);
+
+            kemaskiniDropdownSubjek();
+            binaGraf();
+        }
+
+        function paparJadual() {
+            let ul = document.getElementById("timetableList");
+            ul.innerHTML = "";
+            timetable.sort((a,b) => a.time.localeCompare(b.time));
+
+            timetable.forEach((item, index) => {
+                let li = document.createElement("li");
+                li.innerHTML = `
+                    <span><strong>⏰ ${item.time}</strong> — ${item.subject}</span>
+                    <button style="padding:2px 8px; font-size:11px; background:#ef4444; color:white; border:none; border-radius:4px; cursor:pointer;" onclick="padamJadual(${index})">Padam</button>
+                `;
+                ul.appendChild(li);
+            });
+        }
+
+        function tambahJadualBaru() {
+            let time = document.getElementById("timeInput").value;
+            let subject = document.getElementById("subjectInput").value.trim();
+
+            if (!time || !subject) {
+                alert("Sila isi masa dan aktiviti!");
+                return;
+            }
+
+            timetable.push({ time, subject });
+            localStorage.setItem("studyHub_timetable", JSON.stringify(timetable));
+            paparJadual();
+            document.getElementById("subjectInput").value = "";
+        }
+
+        function padamJadual(index) {
+            timetable.splice(index, 1);
+            localStorage.setItem("studyHub_timetable", JSON.stringify(timetable));
+            paparJadual();
+        }
+
+        function paparGoals() {
+            let ul = document.getElementById("goalList");
+            ul.innerHTML = "";
+
+            let completedCount = goals.filter(g => g.completed).length;
+            document.getElementById("outGoalCounter").innerText = `${completedCount} / ${goals.length} Capai`;
+
+            goals.forEach((goal, index) => {
+                let li = document.createElement("li");
+                if (goal.completed) li.classList.add("completed");
+
+                li.innerHTML = `
+                    <span class="task-title">🎯 ${goal.title}</span>
+                    <div>
+                        <input type="checkbox" ${goal.completed ? 'checked' : ''} onchange="toggleGoal(${index})">
+                        <button style="padding:2px 8px; font-size:11px; background:#ef4444; color:white; border:none; border-radius:4px; margin-left:5px; cursor:pointer;" onclick="padamGoal(${index})">Padam</button>
+                    </div>
+                `;
+                ul.appendChild(li);
+            });
+        }
+
+        function tambahGoalBaru() {
+            let input = document.getElementById("goalInput");
+            let goalText = input.value.trim();
+
+            if (goalText === "") {
+                alert("Sila masukkan sasaran anda!");
+                return;
+            }
+
+            goals.push({ title: goalText, completed: false });
+            localStorage.setItem("studyHub_goals", JSON.stringify(goals));
+            paparGoals();
+            input.value = "";
+        }
+
+        function toggleGoal(index) {
+            goals[index].completed = !goals[index].completed;
+            if (goals[index].completed) tambahXP(25);
+            localStorage.setItem("studyHub_goals", JSON.stringify(goals));
+            paparGoals();
+        }
+
+        function padamGoal(index) {
+            goals.splice(index, 1);
+            localStorage.setItem("studyHub_goals", JSON.stringify(goals));
+            paparGoals();
+        }
+
+        function toggleSidebar() {
+            document.getElementById("mySidebar").classList.toggle("closed");
+            document.getElementById("mainContent").classList.toggle("expanded");
+        }
+
+        function kiraDanSimpanCountdown() {
+            let name = document.getElementById("examName").value.trim();
+            let dateVal = document.getElementById("examDate").value;
+
+            if (dateVal === "") {
+                alert("Sila pilih tarikh peperiksaan!");
+                return;
+            }
+
+            if (name === "") name = "Ujian Akhir Sesi Akademik (UASA)";
+
+            localStorage.setItem("studyHub_examName", name);
+            localStorage.setItem("studyHub_examDate", dateVal);
+
+            kiraCountdown(name, dateVal);
+        }
+
+        function kiraCountdown(name, dateVal) {
+            let targetDate = new Date(dateVal);
+            let today = new Date();
+            let timeDiff = targetDate - today;
+            let daysDiff = Math.ceil(timeDiff / (1000 * 3600 * 24));
+
+            let examCard = document.getElementById("examCard");
+            let motivation = document.getElementById("examMotivation");
+
+            document.getElementById("outDays").innerText = daysDiff < 0 ? "Selesai!" : daysDiff + " More Days";
+            document.getElementById("outExamName").innerText = name;
+
+            examCard.className = "hero-card ";
+            if (daysDiff <= 3) {
+                examCard.classList.add("hero-countdown-danger");
+                motivation.innerText = "🚨 PANIC MODE! Focus on the main topics and clutch the exam!";
+            } else if (daysDiff <= 14) {
+                examCard.classList.add("hero-countdown-warning");
+                motivation.innerText = "⚠️ WARNING! The countdown is real, don't drop the grind";
+            } else {
+                examCard.classList.add("hero-countdown-normal");
+                motivation.innerText = "🌱 Time waits for no one. LET'S COOK before the exams eat us up!";
+            }
+        }
+
+        function paparTugasan() {
+            let ul = document.getElementById("taskList");
+            ul.innerHTML = "";
+
+            tasks.forEach((task, index) => {
+                let li = document.createElement("li");
+                if (task.completed) li.classList.add("completed");
+
+                let priorityBadge = task.priority === "Tinggi" 
+                    ? `<span class="badge-priority badge-high">Tinggi</span>`
+                    : `<span class="badge-priority badge-normal">Biasa</span>`;
+
+                li.innerHTML = `
+                    <div>
+                        <span class="task-title">${task.title}</span>
+                        ${priorityBadge}
+                    </div>
+                    <div>
+                        <input type="checkbox" ${task.completed ? 'checked' : ''} onchange="toggleTugasan(${index})">
+                        <button style="padding:2px 8px; font-size:11px; background:#ef4444; color:white; border:none; border-radius:4px; margin-left:5px; cursor:pointer;" onclick="padamTugasan(${index})">Padam</button>
+                    </div>
+                `;
+                ul.appendChild(li);
+            });
+        }
+
+        function tambahTugasanBaru() {
+            let input = document.getElementById("taskInput");
+            let priority = document.getElementById("taskPriority").value;
+            let taskText = input.value.trim();
+
+            if (taskText === "") {
+                alert("Sila masukkan nama tugasan!");
+                return;
+            }
+
+            tasks.push({ title: taskText, priority: priority, completed: false });
+            localStorage.setItem("studyHub_tasks", JSON.stringify(tasks));
+            paparTugasan();
+            input.value = "";
+        }
+
+        function toggleTugasan(index) {
+            tasks[index].completed = !tasks[index].completed;
+            if (tasks[index].completed) tambahXP(10);
+            localStorage.setItem("studyHub_tasks", JSON.stringify(tasks));
+            paparTugasan();
+        }
+
+        function padamTugasan(index) {
+            tasks.splice(index, 1);
+            localStorage.setItem("studyHub_tasks", JSON.stringify(tasks));
+            paparTugasan();
+        }
+
+        function mintaIzinNotifikasi() {
+            if (!("Notification" in window)) {
+                alert("Pelayar anda tidak menyokong notifikasi.");
+                return;
+            }
+
+            Notification.requestPermission().then(permission => {
+                if (permission === "granted") {
+                    alert("Notification's Now Actived! Peringatan akan dihantar setiap 2 jam.");
+                    semakDanHantarNotifikasi();
+                }
+            });
+        }
+
+        function semakDanHantarNotifikasi() {
+            if (Notification.permission !== "granted") return;
+
+            let pendingTasks = tasks.filter(t => !t.completed).length;
+
+            if (pendingTasks > 0) {
+                new Notification("Reminder! Homework is calling..📚", {
+                    body: `Anda mempunyai ${pendingTasks} tugasan belum siap. Sila semak jadual anda!`,
+                    icon: "https://cdn-icons-png.flaticon.com/512/2921/2921222.png"
+                });
+            }
+        }
+
+        let timerInterval = null;
+        let audioSynthContext = null;
+
+        function pilihModPomodoro(mod) {
+            hentikanMasa();
+            switch (mod) {
+                case 'fokus':
+                    pomsSeconds = 25 * 60;
+                    break;
+                case 'rehat_pendek':
+                    pomsSeconds = 5 * 60;
+                    break;
+                case 'rehat_panjang':
+                    pomsSeconds = 15 * 60;
+                    break;
+                default:
+                    pomsSeconds = 25 * 60;
+            }
+            kemaskiniPaparanTimer();
+        }
+
+        function kemaskiniPaparanTimer() {
+            let m = Math.floor(pomsSeconds / 60);
+            let s = pomsSeconds % 60;
+            document.getElementById("timer").innerText = `${m < 10 ? '0' : ''}${m}:${s < 10 ? '0' : ''}${s}`;
+        }
+
+        function playChime() {
+            try {
+                let ctx = new (window.AudioContext || window.webkitAudioContext)();
+                let osc = ctx.createOscillator();
+                osc.type = "sine";
+                osc.frequency.setValueAtTime(587.33, ctx.currentTime);
+                osc.connect(ctx.destination);
+                osc.start();
+                osc.stop(ctx.currentTime + 0.8);
+            } catch (e) {
+                console.log("Audio not supported");
+            }
+        }
+
+        function mulaMasa() {
+            if (timerInterval !== null) return;
+
+            timerInterval = setInterval(() => {
+                if (pomsSeconds <= 0) {
+                    clearInterval(timerInterval);
+                    timerInterval = null;
+                    tambahXP(20);
+
+                    if ("vibrate" in navigator) {
+                        navigator.vibrate([200, 100, 200, 100, 400]);
+                    }
+                    playChime();
+                    alert("Sesi Tamat! Anda mendapat +20 XP!");
+                } else {
+                    pomsSeconds--;
+                    kemaskiniPaparanTimer();
+                }
+            }, 1000);
+        }
+
+        function hentikanMasa() {
+            clearInterval(timerInterval);
+            timerInterval = null;
+            pomsSeconds = 25 * 60;
+            kemaskiniPaparanTimer();
+        }
+
+        function tukarAudioLatar() {
+            let mode = document.getElementById("ambientSelect").value;
+            
+            if (audioSynthContext) {
+                audioSynthContext.close();
+                audioSynthContext = null;
+            }
+
+            if (mode === "off") return;
+
+            audioSynthContext = new (window.AudioContext || window.webkitAudioContext)();
+            let bufferSize = audioSynthContext.sampleRate * 2;
+            let noiseBuffer = audioSynthContext.createBuffer(1, bufferSize, audioSynthContext.sampleRate);
+            let output = noiseBuffer.getChannelData(0);
+
+            for (let i = 0; i < bufferSize; i++) {
+                output[i] = Math.random() * 2 - 1;
+            }
+
+            let whiteNoise = audioSynthContext.createBufferSource();
+            whiteNoise.buffer = noiseBuffer;
+            whiteNoise.loop = true;
+
+            let gainNode = audioSynthContext.createGain();
+            gainNode.gain.value = mode === "rain" ? 0.05 : 0.02;
+
+            whiteNoise.connect(gainNode);
+            gainNode.connect(audioSynthContext.destination);
+            whiteNoise.start();
+        }
+
+        function paparFlashcard() {
+            let box = document.getElementById("flashcardBox");
+            if (flashcards.length === 0) {
+                box.innerText = "Tiada Flashcard. Sila tambah di atas!";
+                return;
+            }
+
+            let card = flashcards[currentFcIndex];
+            box.innerText = isFcFlipped ? `💡 JAWAPAN:\n${card.a}` : `❓ SOALAN (${currentFcIndex + 1}/${flashcards.length}):\n${card.q}`;
+        }
+
+        function padamFlashcard() {
+            if (flashcards.length === 0) {
+                alert("⚠️ Tiada flashcard untuk dipadam!");
+                return;
+            }
+
+            let sahkan = confirm("Adakah anda pasti nak padam soalan ini?");
+            if (!sahkan) return;
+
+            flashcards.splice(currentFcIndex, 1);
+            localStorage.setItem("studyHub_flashcards", JSON.stringify(flashcards));
+
+            if (currentFcIndex >= flashcards.length && flashcards.length > 0) {
+                currentFcIndex = flashcards.length - 1;
+            }
+
+            isFcFlipped = false;
+            paparFlashcard();
+        }
+
+        function flipFlashcard() {
+            isFcFlipped = !isFcFlipped;
+            paparFlashcard();
+        }
+
+        function nextFlashcard() {
+            if (flashcards.length === 0) return;
+            currentFcIndex = (currentFcIndex + 1) % flashcards.length;
+            isFcFlipped = false;
+            paparFlashcard();
+        }
+
+        function prevFlashcard() {
+            if (flashcards.length === 0) return;
+            currentFcIndex = (currentFcIndex - 1 + flashcards.length) % flashcards.length;
+            isFcFlipped = false;
+            paparFlashcard();
+        }
+
+        function tambahFlashcard() {
+            let q = document.getElementById("fcQuestion").value.trim();
+            let a = document.getElementById("fcAnswer").value.trim();
+
+            if (!q || !a) {
+                alert("Sila masukkan soalan dan jawapan!");
+                return;
+            }
+
+            flashcards.push({ q, a });
+            localStorage.setItem("studyHub_flashcards", JSON.stringify(flashcards));
+            currentFcIndex = flashcards.length - 1;
+            isFcFlipped = false;
+            paparFlashcard();
+
+            document.getElementById("fcQuestion").value = "";
+            document.getElementById("fcAnswer").value = "";
+        }
+
+        // --- GPA LOGIC MODULE ---
+        function tukarLevelForm() {
+            let container = document.getElementById("gpaInputs");
+            container.innerHTML = "";
+            subjectCount = 0;
+            
+            for (let i = 0; i < 4; i++) {
+                tambahInputSubjek();
+            }
+        }
+
+        function tambahInputSubjek() {
+            subjectCount++;
+            let level = document.getElementById("formLevel").value;
+            let container = document.getElementById("gpaInputs");
+            let div = document.createElement("div");
+            div.className = "form-group";
+            div.style.display = "flex";
+            div.style.gap = "10px";
+            div.style.alignItems = "center";
+            div.id = `sub-row-${subjectCount}`;
+
+            let optionsHTML = "";
+            if (level === "lower") {
+                optionsHTML = `
+                    <option value="1">Gred A (1 point)</option>
+                    <option value="2">Gred B (2 points)</option>
+                    <option value="3">Gred C (3 points)</option>
+                    <option value="4">Gred D (4 points)</option>
+                    <option value="5">Gred E (5 points)</option>
+                    <option value="6">Gred F (6 points)</option>
+                `;
+            } else {
+                optionsHTML = `
+                    <option value="0">Gred A+ (0 point)</option>
+                    <option value="1">Gred A (1 point)</option>
+                    <option value="2">Gred A- (2 points)</option>
+                    <option value="3">Gred B+ (3 points)</option>
+                    <option value="4">Gred B (4 points)</option>
+                    <option value="5">Gred C+ (5 points)</option>
+                    <option value="6">Gred C (6 points)</option>
+                    <option value="7">Gred D (7 points)</option>
+                    <option value="8">Gred E (8 points)</option>
+                    <option value="9">Gred G (9 points)</option>
+                `;
+            }
+
+            div.innerHTML = `
+                <input type="text" placeholder="Subjek ${subjectCount}" style="flex:2;">
+                <select class="gpa-select" style="flex:2;">${optionsHTML}</select>
+                <button type="button" onclick="padamSubjek('sub-row-${subjectCount}')" style="background:#ef4444; border:none; color:white; border-radius:4px; padding:8px 12px; cursor:pointer;">🗑️</button>
+            `;
+            container.appendChild(div);
+        }
+
+        function padamSubjek(id) {
+            let el = document.getElementById(id);
+            if (el) el.remove();
+        }
+
+        function kiraGPA() {
+            let level = document.getElementById("formLevel").value;
+            let selects = document.querySelectorAll(".gpa-select");
+            let resBox = document.getElementById("gpaResult");
+
+            if (selects.length === 0) {
+                alert("⚠️ Sila tambah sekurang-kurangnya satu subjek!");
+                return;
+            }
+
+            let totalPoints = 0;
+            selects.forEach(select => {
+                totalPoints += parseFloat(select.value);
+            });
+
+            let gpa = totalPoints / selects.length;
+            let formattedGPA = gpa.toFixed(2);
+
+            // Simpan & kemaskini paparan pointer utama
+            localStorage.setItem("studyHub_currentPointer", formattedGPA);
+            paparPointerUtama(formattedGPA, level);
+
+            if (level === "lower") {
+                let status = gpa <= 2.50 
+                    ? "🔥 EXCELLENT! Pointer korang lepas sasaran 2.50! Keep lock in! 🏆" 
+                    : "🚨 WARNING! Purata gred korang melepasi 2.50. Masa untuk push revision! 📈";
+
+                resBox.innerHTML = `
+                    <h3>Purata Gred (PNGS): <span style="color:#38bdf8;">${formattedGPA}</span></h3>
+                    <p style="font-size:13px; margin-top:5px;">${status}</p>
+                `;
+            } else {
+                let status = "";
+                if (gpa <= 4.50) {
+                    status = "🏆 STRAIGHT A'S / TOP TIER ENERGY! Purata gred korang melepasi sasaran 4.50! WAGMI! 👑";
+                    resBox.style.borderColor = "#16a34a";
+                } else {
+                    status = "🚨 EMERGENCY! Purata gred korang di atas sasaran 4.50. Lock in & tingkatkan usaha! 🔥";
+                    resBox.style.borderColor = "#ea580c";
+                }
+
+                resBox.innerHTML = `
+                    <h3>Purata Nilai Gred (SPM): <span style="color:#38bdf8;">${formattedGPA}</span></h3>
+                    <p style="font-size:12px; color:#94a3b8; margin-top:2px;">(Nota: A+ = 0.00, G = 9.00 | Sasaran Penanda Aras: ≤ 4.50)</p>
+                    <p style="font-size:13px; margin-top:8px;">${status}</p>
+                `;
+            }
+        }
+
+        function kiraJurangMarkah() {
+            let current = parseFloat(document.getElementById("currentMarkInput").value);
+            let target = parseFloat(document.getElementById("targetMarkInput").value);
+            let resBox = document.getElementById("predictorResult");
+
+            if (isNaN(current) || isNaN(target)) {
+                alert("Sila masukkan kedua-dua markah!");
+                return;
+            }
+
+            let diff = target - current;
+            if (diff <= 0) {
+                resBox.innerText = `🎉 Tahniah! Markah terkini anda (${current}%) telah mencapai/melebihi sasaran (${target}%)!`;
+                resBox.style.color = "#16a34a";
+            } else {
+                resBox.innerText = `📈 Anda memerlukan sekurang-kurangnya +${diff.toFixed(1)}% peningkatan dalam ujian akan datang!`;
+                resBox.style.color = "#0284c7";
+            }
+        }
+
+        let resultChart = null;
+
+        function tukarKategoriTingkatan() {
+            currentCategory = document.getElementById("formCategorySelect").value;
+            localStorage.setItem("studyHub_formCategory", currentCategory);
+            kemaskiniDropdownSubjek();
+            binaGraf();
+        }
+
+        function kemaskiniDropdownSubjek() {
+            const select = document.getElementById("subjectSelect");
+            select.innerHTML = "";
+
+            subjectConfig[currentCategory].labels.forEach((subject, index) => {
+                let opt = document.createElement("option");
+                opt.value = index;
+                opt.innerText = subject;
+                select.appendChild(opt);
+            });
+        }
+
+        function binaGraf() {
+            const ctx = document.getElementById('resultChart').getContext('2d');
+            const dataToUse = currentCategory === "lower" ? marksDataLower : marksDataUpper;
+            
+            if (resultChart) {
+                resultChart.destroy();
+            }
+
+            resultChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: subjectConfig[currentCategory].labels,
+                    datasets: [{
+                        label: `Markah Ujian (${currentCategory === 'lower' ? 'Tingkatan Rendah' : 'Tingkatan Atas'}) %`,
+                        data: dataToUse,
+                        backgroundColor: subjectConfig[currentCategory].colors,
+                        borderRadius: 4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: { beginAtZero: true, max: 100 }
+                    }
+                }
+            });
+        }
+
+        function kemaskiniGraf() {
+            let index = document.getElementById("subjectSelect").value;
+            let mark = parseFloat(document.getElementById("markInput").value);
+
+            if (isNaN(mark) || mark < 0 || mark > 100) {
+                alert("Sila masukkan markah yang sah (0-100)!");
+                return;
+            }
+
+            if (currentCategory === "lower") {
+                marksDataLower[index] = mark;
+                localStorage.setItem("studyHub_marksLower", JSON.stringify(marksDataLower));
+            } else {
+                marksDataUpper[index] = mark;
+                localStorage.setItem("studyHub_marksUpper", JSON.stringify(marksDataUpper));
+            }
+
+            resultChart.update();
+
+            let gred = "";
+            let ulasan = "";
+            let warna = "";
+
+            if (mark >= 80) {
+                gred = "A (Cemerlang)";
+                ulasan = "SLAYY, Keep this up CHAMP🏆!";
+                warna = "#16a34a";
+            } else if (mark >= 70) {
+                gred = "B (Kepujian)";
+                ulasan = "Absolutely good👌, just tiny push left to get the A!";
+                warna = "#0284c7";
+            } else if (mark >= 60) {
+                gred = "C (Baik)";
+                ulasan = "Not Bad buddy👍, keep focusing & practising to level up your grades!";
+                warna = "#d97706";
+            } else if (mark >= 50) {
+                gred = "D (Lulus)";
+                ulasan = "Secured the pass♨️! Focus more on those hard topics and cook harder!";
+                warna = "#ea580c";
+            } else if (mark >= 40) {
+                gred = "E (Lulus)";
+                ulasan = "Barely breathing bro😱! Lock in right now & ready for a better grade!";
+                warna = "#ea580c";
+            } else {
+                gred = "F (Gagal)";
+                ulasan = "Set for a MAJOR COMEBACK👊! Put more EFFORT & show them what you really are buddy!";
+                warna = "#ef4444";
+            }
+
+            let fbBox = document.getElementById("gradeFeedback");
+            fbBox.style.display = "block";
+            fbBox.style.borderColor = warna;
+            fbBox.style.color = warna;
+            fbBox.innerText = `📊 Keputusan: Gred ${gred}\n💬 ${ulasan}`;
+
+            document.getElementById("markInput").value = "";
+        }
+    </script>
+</body>
+</html>
